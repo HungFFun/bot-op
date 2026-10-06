@@ -1,0 +1,26 @@
+{
+  "name": "@bot-op/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "studio": "drizzle-kit studio"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
+  },
+  "dependencies": {
+    "@bot-op/shared": "workspace:^",
+    "@node-rs/argon2": "^2.2.1",
+    "drizzle-orm": "^0.45.3",
+    "postgres": "^3.4.9"
+  }
+}
