@@ -12,18 +12,18 @@ Mỗi giai đoạn xong phải đạt "Tiêu chí hoàn thành" rồi mới sang
 **Tiêu chí**: chạy `pnpm dev`, đăng nhập bằng owner seed, gọi `/api/auth/me` thành công.
 
 ## Giai đoạn 1 — Danh mục (tuần 2)
-- [ ] Schema danh mục + giá + view latest price
-- [ ] API CRUD NL/NCC/hạng mục, import CSV/XLSX
-- [ ] Web admin danh mục, tìm không dấu
+- [x] Schema danh mục + giá + view latest price
+- [x] API CRUD NL/NCC/hạng mục, import CSV/XLSX
+- [x] Web admin danh mục, tìm không dấu
 **Tiêu chí**: import file danh mục thật, màn danh sách NL hiện đúng giá gần nhất + NCC.
 
 ## Giai đoạn 2 — Order (tuần 3–4)
-- [ ] Schema order; API tạo giỏ → batch + PO theo NCC
-- [ ] Duyệt/từ chối, mark ordered, tin đặt hàng copy được
-- [ ] Nhận hàng: SL + giá thực + ảnh → ghi ingredient_prices
-- [ ] Web: order, giỏ (localStorage), PO list, duyệt, nhận hàng, lịch sử giá
-- [ ] PWA + Web Push cho manager khi có PO mới
-- [ ] Audit log
+- [x] Schema order; API tạo giỏ → batch + PO theo NCC
+- [x] Duyệt/từ chối, mark ordered, tin đặt hàng copy được
+- [x] Nhận hàng: SL + giá thực + ảnh → ghi ingredient_prices
+- [x] Web: order, giỏ (localStorage), PO list, duyệt, nhận hàng, lịch sử giá
+- [x] PWA + Web Push cho manager khi có PO mới
+- [x] Audit log
 **Tiêu chí**: một order thật đi hết vòng submitted → received, giá gần nhất cập nhật.
 
 ## Giai đoạn 3 — Token chi (tuần 5)

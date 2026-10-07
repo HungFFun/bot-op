@@ -16,9 +16,14 @@ export default fp(async (app) => {
       return reply.status(400).send(body);
     }
     if (err instanceof AppError) {
-      return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      const body: ApiError = { error: err.code, message: err.message };
+      if (err.rowErrors) body.rowErrors = err.rowErrors;
+      return reply.status(err.statusCode).send(body);
     }
     const status = 'statusCode' in err && err.statusCode ? err.statusCode : 500;
+    if (status === 413) {
+      return reply.status(413).send({ error: 'too_large', message: 'File quá lớn' });
+    }
     if (status < 500) {
       return reply.status(status).send({ error: 'bad_request', message: 'Yêu cầu không hợp lệ' });
     }

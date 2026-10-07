@@ -5,6 +5,7 @@ Hỏi chủ dự án trước khi làm phần liên quan. Ghi câu trả lời n
 1. Có bao nhiêu chi nhánh? Mỗi chi nhánh có group Zalo riêng không?
 2. Ai được order: mọi nhân viên hay chỉ bếp trưởng/quản lý? Order có bắt buộc duyệt không, hay dưới một mức tiền thì tự duyệt?
 3. Một nguyên liệu có thể mua từ nhiều NCC không? Khi order, nhân viên được đổi NCC hay luôn dùng NCC mặc định?
+   - **Chốt (2026-10-07):** 1 món có 1 NCC mặc định + danh sách "NCC khác" (`ingredient_suppliers`). Khi order, từng món đổi được sang NCC bất kỳ (vd số lượng ít → ra chợ mua); PO tách theo NCC đã chọn. 8 cặp món trùng tên trong file đã gộp, NCC mặc định = nơi order nhiều ngày hơn trong T10.
 4. Có cần theo dõi tồn kho không? (Nếu có, thêm bảng `stock_movements` từ giai đoạn 1.)
 5. Khoản chi trên mức bao nhiêu thì cần owner duyệt thay vì manager?
 6. Đơn vị tính chuẩn hoá thế nào (kg vs g, thùng vs chai)? Có cần quy đổi không?

@@ -5,6 +5,12 @@ import { RouterProvider } from 'react-router';
 import './index.css';
 import { router } from './router';
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {
+    // No SW (e.g. plain http on LAN): the app works, only notifications are unavailable.
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });

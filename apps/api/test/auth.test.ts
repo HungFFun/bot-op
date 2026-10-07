@@ -22,7 +22,7 @@ describe('POST /api/auth/login', () => {
     const branch = await createBranch(app, 'Q1');
     const user = await createUser(app, { role: 'manager', branchId: branch.id });
 
-    const { res, cookie } = await login(app, user.phone, user.pin);
+    const { res, cookie } = await login(app, user.username, user.password);
     expect(res.statusCode).toBe(200);
     const sid = res.cookies.find((c) => c.name === 'sid');
     expect(sid?.httpOnly).toBe(true);
@@ -32,73 +32,72 @@ describe('POST /api/auth/login', () => {
     expect(me.statusCode).toBe(200);
     expect(me.json()).toEqual({
       id: user.id,
+      username: user.username,
       name: user.name,
-      phone: user.phone,
       role: 'manager',
       branch: { id: branch.id, code: 'Q1', name: 'CN Q1' },
     });
   });
 
-  it('accepts a phone typed with spaces or +84', async () => {
+  it('accepts the username in any letter case', async () => {
     const user = await createUser(app);
-    const typed = `+84 ${user.phone.slice(1, 4)} ${user.phone.slice(4)}`;
-    const { res } = await login(app, typed, user.pin);
+    const { res } = await login(app, user.username.toUpperCase(), user.password);
     expect(res.statusCode).toBe(200);
   });
 
   it('stores only a hash of the session token', async () => {
     const user = await createUser(app);
-    const { cookie } = await login(app, user.phone, user.pin);
+    const { cookie } = await login(app, user.username, user.password);
     const token = cookie!.slice('sid='.length);
     const [row] = await app.db.select().from(sessions).where(eq(sessions.userId, user.id));
     expect(row?.tokenHash).toBeDefined();
     expect(row?.tokenHash).not.toBe(token);
   });
 
-  it('returns the same 401 for unknown phone and wrong PIN', async () => {
+  it('returns the same 401 for unknown username and wrong password', async () => {
     const user = await createUser(app);
-    const unknown = await login(app, '0999999999', '123456');
-    const wrong = await login(app, user.phone, '654321');
+    const unknown = await login(app, 'nobody', 'secret123');
+    const wrong = await login(app, user.username, 'wrong-password');
     expect(unknown.res.statusCode).toBe(401);
     expect(wrong.res.statusCode).toBe(401);
     expect(unknown.res.json()).toEqual(wrong.res.json());
-    expect(wrong.res.json().message).toBe('Số điện thoại hoặc PIN không đúng');
+    expect(wrong.res.json().message).toBe('Tên đăng nhập hoặc mật khẩu không đúng');
   });
 
   it('rejects invalid input with a Vietnamese message', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { phone: '0901234567', pin: '12' },
+      payload: { username: 'hung', password: '' },
     });
     expect(res.statusCode).toBe(400);
-    expect(res.json().message).toBe('PIN gồm đúng 6 chữ số');
+    expect(res.json().message).toBe('Vui lòng nhập mật khẩu');
   });
 
   it('rejects inactive users', async () => {
     const user = await createUser(app, { active: false });
-    const { res } = await login(app, user.phone, user.pin);
+    const { res } = await login(app, user.username, user.password);
     expect(res.statusCode).toBe(401);
   });
 
-  it(`locks the account for 15 minutes after ${MAX_FAILED_ATTEMPTS} wrong PINs`, async () => {
+  it(`locks the account for 15 minutes after ${MAX_FAILED_ATTEMPTS} wrong passwords`, async () => {
     const user = await createUser(app);
     for (let i = 1; i < MAX_FAILED_ATTEMPTS; i++) {
-      expect((await login(app, user.phone, '000000')).res.statusCode).toBe(401);
+      expect((await login(app, user.username, 'wrong-password')).res.statusCode).toBe(401);
     }
-    const fifth = await login(app, user.phone, '000000');
+    const fifth = await login(app, user.username, 'wrong-password');
     expect(fifth.res.statusCode).toBe(423);
     expect(fifth.res.json().message).toContain('15 phút');
 
-    // Even the correct PIN is refused while locked.
-    expect((await login(app, user.phone, user.pin)).res.statusCode).toBe(423);
+    // Even the correct password is refused while locked.
+    expect((await login(app, user.username, user.password)).res.statusCode).toBe(423);
 
-    // Once the lock expires, the correct PIN works and counters reset.
+    // Once the lock expires, the correct password works and counters reset.
     await app.db
       .update(users)
       .set({ lockedUntil: new Date(Date.now() - 1000) })
       .where(eq(users.id, user.id));
-    expect((await login(app, user.phone, user.pin)).res.statusCode).toBe(200);
+    expect((await login(app, user.username, user.password)).res.statusCode).toBe(200);
     const row = await app.db.query.users.findFirst({ where: eq(users.id, user.id) });
     expect(row?.failedAttempts).toBe(0);
     expect(row?.lockedUntil).toBeNull();
@@ -106,9 +105,9 @@ describe('POST /api/auth/login', () => {
 
   it('resets the failure counter after a successful login', async () => {
     const user = await createUser(app);
-    await login(app, user.phone, '000000');
-    await login(app, user.phone, '000000');
-    await login(app, user.phone, user.pin);
+    await login(app, user.username, 'wrong-password');
+    await login(app, user.username, 'wrong-password');
+    await login(app, user.username, user.password);
     const row = await app.db.query.users.findFirst({ where: eq(users.id, user.id) });
     expect(row?.failedAttempts).toBe(0);
   });
@@ -123,7 +122,7 @@ describe('session lifecycle', () => {
 
   it('logout invalidates the session server-side', async () => {
     const user = await createUser(app);
-    const { cookie } = await login(app, user.phone, user.pin);
+    const { cookie } = await login(app, user.username, user.password);
     const out = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { cookie } });
     expect(out.statusCode).toBe(200);
     const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
@@ -132,7 +131,7 @@ describe('session lifecycle', () => {
 
   it('expired sessions are rejected', async () => {
     const user = await createUser(app);
-    const { cookie } = await login(app, user.phone, user.pin);
+    const { cookie } = await login(app, user.username, user.password);
     await app.db
       .update(sessions)
       .set({ expiresAt: new Date(Date.now() - 1000) })
@@ -143,7 +142,7 @@ describe('session lifecycle', () => {
 
   it('deactivating a user ends their existing sessions', async () => {
     const user = await createUser(app);
-    const { cookie } = await login(app, user.phone, user.pin);
+    const { cookie } = await login(app, user.username, user.password);
     await app.db.update(users).set({ active: false }).where(eq(users.id, user.id));
     const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
     expect(me.statusCode).toBe(401);

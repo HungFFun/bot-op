@@ -1,9 +1,10 @@
 # 02 — Chức năng & luồng nghiệp vụ
 
 ## 0. Đăng nhập web
-- Số điện thoại + PIN 6 số. Phiên giữ 30 ngày (cookie httpOnly, secure, sameSite=lax).
-- Sai 5 lần → khoá 15 phút. Owner/manager tạo user và reset PIN.
-- PIN hash bằng argon2.
+- Tên đăng nhập + mật khẩu (tối thiểu 6 ký tự). Tên đăng nhập không phân biệt hoa thường. Phiên giữ 30 ngày (cookie httpOnly, secure, sameSite=lax).
+- Không tự đăng ký: **admin (role `owner`) cấp tài khoản**, đặt lại mật khẩu, khoá tài khoản tại `/admin/users`. Đặt lại mật khẩu hoặc khoá → đăng xuất khỏi mọi thiết bị.
+- Sai 5 lần → khoá 15 phút (admin đặt lại mật khẩu để mở khoá ngay).
+- Mật khẩu hash bằng argon2. Số điện thoại chỉ là thông tin liên hệ.
 - Web là PWA: "Thêm vào màn hình chính", nhận Web Push.
 
 ## 1. Order nguyên liệu

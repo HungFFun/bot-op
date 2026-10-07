@@ -1,4 +1,4 @@
-import { hashPin, sessions, users, verifyPin } from '@bot-op/db';
+import { hashPassword, sessions, users, verifyPassword } from '@bot-op/db';
 import { loginBodySchema, type Me } from '@bot-op/shared';
 import { eq, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
@@ -14,40 +14,45 @@ import { currentUser } from '../../plugins/rbac';
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCK_MINUTES = 15;
 
-// Verified against when the phone is unknown, so response time does not reveal which phones exist.
-let dummyPinHash: Promise<string> | undefined;
-const getDummyPinHash = () => (dummyPinHash ??= hashPin('000000'));
+// Verified against when the username is unknown, so response time does not reveal which accounts exist.
+let dummyHash: Promise<string> | undefined;
+const getDummyHash = () => (dummyHash ??= hashPassword('not-a-real-password'));
 
 const invalidCredentials = () =>
-  new AppError(401, 'invalid_credentials', 'Số điện thoại hoặc PIN không đúng');
+  new AppError(401, 'invalid_credentials', 'Tên đăng nhập hoặc mật khẩu không đúng');
 
 const locked = (until: Date) => {
-  const minutes = Math.max(1, Math.ceil((until.getTime() - Date.now()) / 60_000));
+  const minutes = Math.min(
+    LOCK_MINUTES,
+    Math.max(1, Math.ceil((until.getTime() - Date.now()) / 60_000)),
+  );
   return new AppError(
     423,
     'locked',
-    `Tài khoản tạm khoá do nhập sai PIN nhiều lần. Thử lại sau ${minutes} phút.`,
+    `Tài khoản tạm khoá do nhập sai mật khẩu nhiều lần. Thử lại sau ${minutes} phút.`,
   );
 };
 
 export const authRoutes: FastifyPluginAsync<{ sessionSecret: string }> = async (app, opts) => {
   app.post('/auth/login', async (req, reply) => {
-    const { phone, pin } = loginBodySchema.parse(req.body);
-    const user = await app.db.query.users.findFirst({ where: eq(users.phone, phone) });
+    const { username, password } = loginBodySchema.parse(req.body);
+    const user = await app.db.query.users.findFirst({ where: eq(users.username, username) });
 
     if (!user || !user.active) {
-      await verifyPin(await getDummyPinHash(), pin);
+      await verifyPassword(await getDummyHash(), password);
       throw invalidCredentials();
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) throw locked(user.lockedUntil);
 
-    if (!(await verifyPin(user.pinHash, pin))) {
+    if (!(await verifyPassword(user.passwordHash, password))) {
+      // Lock end is computed here, not with the DB's now(), so the minutes shown use one clock.
+      const lockUntil = new Date(Date.now() + LOCK_MINUTES * 60_000);
       // Atomic so concurrent attempts cannot bypass the limit.
       const [updated] = await app.db
         .update(users)
         .set({
           failedAttempts: sql`case when ${users.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS} then 0 else ${users.failedAttempts} + 1 end`,
-          lockedUntil: sql`case when ${users.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS} then now() + make_interval(mins => ${LOCK_MINUTES}) else ${users.lockedUntil} end`,
+          lockedUntil: sql`case when ${users.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS} then ${lockUntil.toISOString()}::timestamptz else ${users.lockedUntil} end`,
         })
         .where(eq(users.id, user.id))
         .returning({ lockedUntil: users.lockedUntil });
@@ -85,7 +90,7 @@ export const authRoutes: FastifyPluginAsync<{ sessionSecret: string }> = async (
   });
 
   app.get('/auth/me', { preHandler: app.requireAuth }, async (req): Promise<Me> => {
-    const { id, name, phone, role, branch } = currentUser(req);
-    return { id, name, phone, role, branch };
+    const { id, username, name, role, branch } = currentUser(req);
+    return { id, username, name, role, branch };
   });
 };

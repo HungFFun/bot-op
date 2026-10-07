@@ -16,12 +16,15 @@ export const branches = pgTable('branches', {
 
 export const users = pgTable('users', {
   id: id(),
+  /** Login name, lowercase. */
+  username: text('username').notNull().unique(),
   name: text('name').notNull(),
-  phone: text('phone').notNull().unique(),
+  /** Contact only, not used for login. */
+  phone: text('phone'),
   role: userRole('role').notNull(),
   /** null = all branches (owner, accountant). */
   branchId: uuid('branch_id').references(() => branches.id),
-  pinHash: text('pin_hash').notNull(),
+  passwordHash: text('password_hash').notNull(),
   failedAttempts: integer('failed_attempts').notNull().default(0),
   lockedUntil: tstz('locked_until'),
   /** Maps a Zalo group sender to a staff member. */

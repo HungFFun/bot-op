@@ -1,0 +1,22 @@
+{
+  "name": "@bot-op/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bot-op/db": "workspace:^",
+    "@bot-op/shared": "workspace:^",
+    "drizzle-orm": "^0.45.3",
+    "web-push": "^3.6.7",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.4"
+  }
+}

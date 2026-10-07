@@ -8,6 +8,62 @@
       "when": 1791271166560,
       "tag": "0000_init_org_users",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791274803083,
+      "tag": "0001_enable_pg_trgm",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791274803888,
+      "tag": "0002_catalog_prices_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791276333152,
+      "tag": "0003_users_username_password_add",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791276333902,
+      "tag": "0004_users_username_password_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791276334918,
+      "tag": "0005_users_drop_pin",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791278655659,
+      "tag": "0006_orders_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791349650147,
+      "tag": "0007_ingredient_suppliers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791350338563,
+      "tag": "0008_ingredient_image",
+      "breakpoints": true
     }
   ]
 }

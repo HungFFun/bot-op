@@ -1,0 +1,16 @@
+{
+  "name": "Bam Thái · Vận hành",
+  "short_name": "Bam Thái",
+  "description": "Order nguyên liệu, chi tiêu và vận hành nhà hàng Bam Thái",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fdf2dd",
+  "theme_color": "#fdf2dd",
+  "icons": [
+    { "src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

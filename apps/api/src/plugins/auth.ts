@@ -7,8 +7,8 @@ import { hashSessionToken, SESSION_COOKIE, SESSION_TOUCH_MS, SESSION_TTL_MS } fr
 
 export type AuthUser = {
   id: string;
+  username: string;
   name: string;
-  phone: string;
   role: UserRole;
   /** null = all branches. */
   branchId: string | null;
@@ -47,8 +47,8 @@ export default fp<{ sessionSecret: string; cookieSecure: boolean }>(async (app, 
         sessionId: sessions.id,
         lastSeenAt: sessions.lastSeenAt,
         id: users.id,
+        username: users.username,
         name: users.name,
-        phone: users.phone,
         role: users.role,
         branchId: users.branchId,
         branchCode: branches.code,
@@ -69,8 +69,8 @@ export default fp<{ sessionSecret: string; cookieSecure: boolean }>(async (app, 
 
     req.user = {
       id: row.id,
+      username: row.username,
       name: row.name,
-      phone: row.phone,
       role: row.role,
       branchId: row.branchId,
       branch:

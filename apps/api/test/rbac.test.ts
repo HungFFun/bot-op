@@ -25,7 +25,7 @@ describe('requireRole', () => {
 
   it('403 for a role that is not allowed', async () => {
     const user = await createUser(app, { role: 'manager' });
-    const { cookie } = await login(app, user.phone, user.pin);
+    const { cookie } = await login(app, user.username, user.password);
     const res = await app.inject({ method: 'GET', url: '/test/owner-only', headers: { cookie } });
     expect(res.statusCode).toBe(403);
     expect(res.json().message).toBe('Bạn không có quyền thực hiện thao tác này');
@@ -33,7 +33,7 @@ describe('requireRole', () => {
 
   it('200 for an allowed role', async () => {
     const user = await createUser(app, { role: 'owner' });
-    const { cookie } = await login(app, user.phone, user.pin);
+    const { cookie } = await login(app, user.username, user.password);
     const res = await app.inject({ method: 'GET', url: '/test/owner-only', headers: { cookie } });
     expect(res.statusCode).toBe(200);
   });

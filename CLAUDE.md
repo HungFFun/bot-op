@@ -34,7 +34,7 @@ Nhân viên KHÔNG chat 1:1 với bot. Mọi thao tác nghiệp vụ làm trên 
 - Web: React + Vite + Tailwind, PWA (Web Push qua `web-push`, VAPID keys trong `.env`)
 - Zalo: `zca-js` (không chính thức) trên tài khoản Zalo phụ
 - AI: Anthropic API — model đặt qua `AI_MODEL_CLASSIFY` / `AI_MODEL_REPORT` trong `.env`
-- Test: Vitest, DB test là Postgres thật qua docker — database riêng `<db>_test`, tự tạo + migrate trong `apps/api/test/global-setup.ts`
+- Test: Vitest, DB test là Postgres thật qua docker — mỗi package một database riêng (`<db>_test` cho api, `<db>_test_worker` cho worker) vì `pnpm test` chạy song song; tạo + migrate bằng `prepareTestDatabase(suffix)` (`packages/db/src/testing.ts`)
 - Deploy: Docker Compose + Cloudflare Tunnel trên laptop Ubuntu Server
 
 ## Kiến trúc tổng thể
@@ -53,7 +53,7 @@ web ◄──► api ◄──► DB (order, PO, expense, giá, audit_logs)
 
 - **zalo-agent**: nhận tin → upsert `zalo_groups` (group mới role=`ignore`) → bỏ qua nếu group `report` hoặc tin từ chính bot → insert `group_messages` (ON CONFLICT `zalo_msg_id` DO NOTHING) → nếu role=`monitor` thì `boss.send('classify-batch', {groupId}, {singletonKey: groupId, startAfter: 120})` để debounce. Gửi: lấy `reports` queued bằng `FOR UPDATE SKIP LOCKED`, giãn ≥3s giữa tin, chỉ gửi khi `AGENT_SEND_ENABLED=true` (mặc định false). Heartbeat 60s vào `agent_health` (singleton row).
 - **worker**: `classify-batch` (lọc rule/từ khoá khẩn trước, ≤30 tin/lần gọi AI, set `processed_at`, tạo incident + report alert nếu khẩn, chống trùng 30'), `report-midday|daily|weekly` (cron theo `REPORT_*_CRON`), `agent-health`, `push`, `backup`.
-- **api**: REST prefix `/api`; plugin `db, auth, rbac, audit, error`. RBAC theo role `staff|manager|accountant|owner` + phạm vi chi nhánh (manager chỉ thấy branch của mình; owner/accountant `branch_id = null` = mọi chi nhánh). Đăng nhập bằng phone + PIN, session lưu hash token.
+- **api**: REST prefix `/api`; plugin `db, auth, rbac, audit, error`. RBAC theo role `staff|manager|accountant|owner` + phạm vi chi nhánh (manager chỉ thấy branch của mình; owner/accountant `branch_id = null` = mọi chi nhánh). Đăng nhập bằng tên đăng nhập + mật khẩu; tài khoản do admin (role `owner`) cấp qua `/api/users`, không tự đăng ký. Session lưu hash token.
 - **Order**: một giỏ → một `order_batches` + nhiều `purchase_orders` tách theo NCC (`PO-YYMMDD-NNNN`). `po_items.est_unit_price` là snapshot giá lúc đặt; nhận hàng ghi `ingredient_prices` (source=`po_receipt`) và tự sinh expense. Giá gần nhất lấy từ view `v_latest_price`.
 
 ## AI — chống bịa (bắt buộc)
@@ -85,8 +85,8 @@ pnpm install
 pnpm db:up            # docker compose up -d postgres
 pnpm db:generate      # drizzle-kit generate --name <tên> sau khi sửa schema
 pnpm db:migrate
-pnpm db:seed          # owner lấy từ SEED_OWNER_* trong .env
-pnpm dev              # api (API_PORT, local 3100) + web :5173 (proxy /api); worker chưa có
+pnpm db:seed          # admin (owner) lấy từ SEED_OWNER_USERNAME/PASSWORD trong .env
+pnpm dev              # api (API_PORT, local 3100) + web :5173 (proxy /api) + worker
 pnpm dev:agent        # chạy zalo-agent riêng (cần quét QR lần đầu)
 pnpm test
 pnpm lint && pnpm typecheck
@@ -101,9 +101,21 @@ Chạy một test (Vitest): `pnpm --filter <package> exec vitest run <file> -t "
 - Package nội bộ export thẳng `src/index.ts` (không build); api chạy bằng `tsx`, web qua Vite. ESM + `moduleResolution: Bundler`, import không cần đuôi `.js`.
 - Env: `loadRootEnv()` (`packages/db/src/env.ts`) đọc `.env` ở root nếu có; trong Docker lấy từ compose.
 - API: `buildApp(config)` trong `apps/api/src/app.ts` (test dùng `app.inject`). Lỗi cho người dùng: `throw new AppError(status, code, 'thông báo tiếng Việt')`; `ZodError` tự thành 400 với message của issue đầu tiên. Route cần đăng nhập: `preHandler: app.requireAuth` / `app.requireRole('manager', 'owner')`; lấy user bằng `currentUser(req)`; lọc chi nhánh bằng `canAccessBranch`.
-- Session: cookie `sid` httpOnly, DB lưu HMAC(`SESSION_SECRET`) của token, hạn 30 ngày trượt. Sai PIN 5 lần → khoá 15 phút (HTTP 423).
+- Session: cookie `sid` httpOnly, DB lưu HMAC(`SESSION_SECRET`) của token, hạn 30 ngày trượt. Sai mật khẩu 5 lần → khoá 15 phút (HTTP 423). Admin khoá tài khoản hoặc đặt lại mật khẩu → xoá mọi session của người đó. Admin không tự khoá / tự hạ quyền được.
+- Tiền trong JSON API là số nguyên đồng (`moneySchema`); cột DB `bigint` dùng `mode: 'number'`. Số lượng là chuỗi thập phân (`qtySchema`, numeric(12,3)).
+- Ghi DB nghiệp vụ trong `app.db.transaction` + `writeAudit(tx, …)` (`apps/api/src/lib/audit.ts`). Lỗi Postgres trùng/FK: `isUniqueViolation` / `isForeignKeyViolation` → 409/400.
+- Danh mục: sửa được bởi `CATALOG_EDITOR_ROLES` (manager, owner); import chỉ owner. Nguyên liệu và NCC không xoá cứng, chỉ `active=false`.
+- Tìm không dấu: cột `ingredients.search_text = ingredientSearchText(code, name)` do app tự cập nhật mỗi khi ghi code/name (index `pg_trgm`); mỗi từ trong query phải khớp.
+- Import (`modules/ingredients/import.ts`): validate hết trước, có dòng lỗi thì không ghi gì (trả `rowErrors`); NCC/hạng mục khớp tên không dấu; không thêm giá nếu trùng giá gần nhất của cùng NCC.
+- Brand (nguồn: `../Bam-Thai-Brand-Book/README.md`, nằm ngoài repo): token màu trong `apps/web/src/index.css` (`elephant` Cam Voi, `chili` Đỏ Ớt, `bamboo`/`bamboo-dark` Xanh Tre/Đốt, `cream` Kem, `ink` Mực Than + biến thể `-soft/-strong/-muted` đã kiểm WCAG AA). Nút chính `bg-elephant text-ink` (không chữ trắng trên cam, không dùng cam làm màu chữ; chữ đỏ dùng `chili-strong`). Logo qua `<Logo>` (tự giữ bề ngang ≥140px + khoảng thở); file ở `apps/web/public/brand/`. Font Be Vietnam Pro (`@fontsource`); font tiêu đề CDA Independence chưa nhúng vì chưa rõ giấy phép.
+- Order/PO (`modules/purchase-orders`): giỏ → 1 `order_batches` + 1 PO mỗi NCC. Mỗi dòng có thể đổi NCC (`items[].supplierId`, vd ra chợ mua) và có ghi chú riêng (`po_items.note`, gửi kèm tin đặt hàng); không đổi thì dùng NCC mặc định. Món chưa có NCC gom chung 1 PO (supplier null, không ghi giá khi nhận). NCC khác của món: `ingredient_suppliers` (gợi ý khi đổi NCC, cột "NCC khác" khi import — import chỉ thêm, không xoá). Mã `PO-YYMMDD-NNNN` theo ngày VN, cấp số bằng advisory lock (`nextPoCodes`). Chuyển trạng thái qua `transition()`: khoá dòng `FOR UPDATE`, sai trạng thái → 409, quyền tính ở `allowedActions()` và trả về client trong `PoDetail.actions` (UI không tự suy luận quyền). Người khác chi nhánh → 404. Duyệt/từ chối/đặt NCC: `PO_APPROVER_ROLES` (manager chi nhánh, owner); nhận hàng: bất kỳ ai trong chi nhánh; người tạo được huỷ khi còn `submitted`.
+- Ảnh: upload trước `POST /api/attachments` (owner null) rồi gắn khi submit form (`attachmentIds`); file ở `UPLOAD_DIR/YYYY/MM/`, chỉ người upload hoặc chi nhánh của PO xem được.
+- Ảnh món: `ingredients.image_id` → `attachments` (owner_type `ingredient`, ai đăng nhập cũng xem được). Web thu nhỏ ảnh trên máy trước khi upload (`lib/image.ts`, ≤800px JPEG); ảnh phục vụ với cache `immutable` vì id không đổi nội dung.
+- Hàng đợi: `startQueue()` / `QUEUES` / kiểu job ở `packages/db/src/queue.ts` (pg-boss v12, tự quản schema `pgboss`). Api chỉ `app.queue.send(...)` (test truyền queue giả, xem `sentJobs` trong `apps/api/test/helpers.ts`); worker `boss.work(...)`. Gửi job sau khi đã ghi DB, lỗi queue chỉ log, không làm hỏng request.
+- Web Push: job `push` {userIds,title,body,url,tag} → worker `jobs/push.ts` gửi mọi thiết bị của user, xoá subscription 404/410, chỉ throw (retry) khi mọi thiết bị lỗi tạm. VAPID trong `.env` (thiếu thì worker chỉ log). Service worker `apps/web/public/sw.js` (chỉ push, không cache offline). iPhone chỉ nhận push khi mở app từ màn hình chính (iOS 16.4+); push cần https (localhost được, IP LAN thì không).
+- Giỏ order lưu localStorage theo user (`features/orders/cart.ts`, `useSyncExternalStore`).
 - TypeScript ghim `~6.0` vì typescript-eslint chưa hỗ trợ TS 7.
 
 ## Trạng thái hiện tại
 
-Giai đoạn 0 xong (2026-10-06). Tiếp theo: `docs/07-roadmap.md` mục "Giai đoạn 1 — Danh mục". Mỗi giai đoạn xong: đánh dấu [x] trong roadmap và cập nhật mục này.
+Giai đoạn 0, 1 xong; danh mục thật (160 NL sau khi gộp món trùng tên, 18 NCC) đã nhập từ `BAM_ORDER HÀNG.xlsx` sheet T10.26. Giai đoạn 2 xong (2026-10-07): order → duyệt → đặt NCC → nhận hàng, PWA + Web Push báo quản lý/admin khi có đơn mới. Tiếp theo: Giai đoạn 3 — Token chi (gồm tự sinh khoản chi khi nhận hàng). Mỗi giai đoạn xong: đánh dấu [x] trong roadmap và cập nhật mục này.

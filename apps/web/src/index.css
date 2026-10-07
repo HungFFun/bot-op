@@ -1,10 +1,45 @@
 @import 'tailwindcss';
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/500.css';
+@import '@fontsource/be-vietnam-pro/600.css';
+@import '@fontsource/be-vietnam-pro/700.css';
 
+/*
+ * Bam Thái brand palette (Bam-Thai-Brand-Book/README.md).
+ * Rules: text on elephant (orange) is ink, never white; orange is never a text colour on
+ * cream/white; white text on chili fails contrast — use chili-strong for red text.
+ * *-strong / *-soft / ink-muted / line are UI derivatives, checked for WCAG AA.
+ */
 @theme {
-  --color-brand-50: #fef2f2;
-  --color-brand-600: #dc2626;
-  --color-brand-700: #b91c1c;
-  --color-brand-800: #991b1b;
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+
+  --color-elephant: #ff6b27; /* Cam Voi */
+  --color-elephant-press: #e85a17;
+  --color-elephant-soft: #ffe3d3;
+  --color-chili: #ff2d2d; /* Đỏ Ớt */
+  --color-chili-strong: #c21d1d;
+  --color-chili-soft: #ffe8e4;
+  --color-bamboo: #1e9e4a; /* Xanh Tre */
+  --color-bamboo-dark: #0a5c2e; /* Xanh Đốt */
+  --color-bamboo-soft: #e3f4e8;
+  --color-cream: #fdf2dd; /* Kem */
+  --color-ink: #2b0f08; /* Mực Than */
+  --color-ink-muted: #7a6560;
+  --color-line: #eadfcb;
+  --color-line-strong: #958072;
+}
+
+/* Keep horizontal swipe, hide the scrollbar (filter chip rows). */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Bottom tab bar height; the cart bar and page bottom padding sit on top of it. */
+:root {
+  --nav-h: 3.25rem;
 }
 
 html {
@@ -13,6 +48,27 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+html,
 body {
-  @apply bg-stone-100 text-stone-900 antialiased;
+  /* Safety net: nothing may widen the page on a phone (that zooms the whole layout out). */
+  overflow-x: clip;
+}
+
+body {
+  @apply bg-cream font-sans text-ink antialiased;
+  accent-color: var(--color-bamboo-dark);
+  /* A long unbroken string (pasted link, note typed without spaces) wraps instead of stretching its box. */
+  overflow-wrap: anywhere;
+}
+
+/* Grid items default to min-width:auto and grow to their content; keep them inside the column. */
+.grid > * {
+  min-width: 0;
+}
+
+/* iOS Safari gives date inputs an intrinsic min width that ignores width:100%. */
+input[type='date'] {
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
 }
